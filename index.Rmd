@@ -1,0 +1,214 @@
+---
+title: "The Health and Economic Effects of Weather Related Conditions"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+    
+### Synopsis
+
+Storm data spanning from 1950-2011 was acquired from the National Weather Service. This data was processed and analyzed to determine which weather related events were the most costly to human life as well as property and crops.
+
+It was found that tornadoes had the greatest health impact, with a total of 5,640 fatalities and 91,439 injuries, while floods had the greatest economic impact, with a total of ~\$215 billion in property damage and ~\$12 billion in crop damage.
+
+### Data Processing
+
+#### Getting the Data
+    
+The original dataset can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) (dim = [902297, 37])
+    
+```{r}
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(kableExtra)
+if(!file.exists("./data")){dir.create("./data")}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if(!file.exists("./data/stormdata.csv.bz2")){download.file(fileUrl, "./data/stormdata.csv.bz2", method = "curl")}
+```
+
+```{r, cache = TRUE}
+stormData <- read.csv("./data/stormdata.csv.bz2")
+```
+
+#### Cleaning EVTYPE
+
+There is a lot of overlap between categories (Ex. tornadoes involve rain, hail, thunder and lightning) so the order was set up in terms of priority (i.e. what is the likely cause of damage given these properties of the storm). Both "Flood" and "Drought" are symptoms of weather patters, and were placed at the end to remain separate from weather descriptions. A flood or drought may be caused by a number of factors, however the root cause of a tsunami or hurricane would be a more honest description for the source of that damage.
+
+```{r, cache = TRUE}
+TORNADOS <- grepl("tornado|gustnado|nado|whirlwind|dust devil|spout|wayterspout|funnel|wall cloud|torndao", stormData$EVTYPE, ignore.case = T)
+HURRICANES <- grepl("hurricane|typhoon|DEAN|depression|alberto|gordon|Jerry|Tropical storm|floyd", stormData$EVTYPE, ignore.case = T)
+MICROBURSTS <- grepl("microburst|downburst|wet microburst|wet micoburst", stormData$EVTYPE, ignore.case = T)
+THUNDERSTORMS <- grepl("lightning|thunderstorm|tstm|lighting|tunderstorm|thundestorm|thunderstrom|thundertsorm|thuderstorm|thundeerstorm|thunderestorm|thunerstorm|ligntning|thundertorm|drowning|metro storm", stormData$EVTYPE, ignore.case = T)
+TSUNAMI <- grepl("seiche|tsunami", stormData$EVTYPE, ignore.case = T)
+WAVE <- grepl("current|tide|heavy seas|surf|swell|wave|marine mishap|marine accident|wake|wave|seas$", stormData$EVTYPE, ignore.case = T)
+AVALANCHE <- grepl("avalanche|avalance", stormData$EVTYPE, ignore.case = T)
+VOLCANO <- grepl("volcanic|vog", stormData$EVTYPE, ignore.case = T)
+TURBULENCE <- grepl("turbulence", stormData$EVTYPE, ignore.case = T)
+DAMBREAK <- grepl("dam failure|dam break", stormData$EVTYPE, ignore.case = T)
+WINTER <- grepl("ice|icy|winter|snow|sleet|blizzard|frost|wintry|glaze", stormData$EVTYPE, ignore.case = T)
+EROSION <- grepl("erosion|erosin|mud slide|mudslide|landslide|landslump|rock slide", stormData$EVTYPE, ignore.case = T)
+FLOOD <- grepl("flood|high water|rapidly rising water|surge|coastal|floood|fld", stormData$EVTYPE, ignore.case = T)
+DROUGHT <- grepl("drought|dry|driest|^excessive$", stormData$EVTYPE, ignore.case = T)
+HAIL <- grepl("hail|pellets", stormData$EVTYPE, ignore.case = T)
+FOG <- grepl("fog", stormData$EVTYPE, ignore.case = T)
+FIRE <- grepl("fire|smoke", stormData$EVTYPE, ignore.case = T)
+RAIN <- grepl("wet weather|heavy rainfall|precipitation|mixed precip|rain|drizzle|heavy shower|heavy mix|wetness|precipatation|wet year|wet month|unseasonably wet|abnormally wet|extremely wet", stormData$EVTYPE, ignore.case = T)
+WIND <- grepl("wind damage|high wind|strong wind|gradient wind|^winds$|gusty wind|wind gust|wind advisory|^wind$|gusty lake wind|^ wind$|wnd|wind storm|high  winds|force winds", stormData$EVTYPE, ignore.case = T)
+HOT <- grepl("heat|record high|high temp|warm|hot", stormData$EVTYPE, ignore.case = T)
+COLD <- grepl("cool|low|frost|hypothermia|hyperthermia|chill|freez|heavy mix|cold", stormData$EVTYPE, ignore.case = T)
+DUST <- grepl("dust", stormData$EVTYPE, ignore.case = T)
+OTHER <- grepl("other", stormData$EVTYPE, ignore.case = T)
+
+stormData$CATEGORY <- vector("character", length(stormData$EVTYPE))
+stormData$CATEGORY[TORNADOS] <- "TORNADO"
+stormData$CATEGORY[HURRICANES] <- "HURRICANE"
+stormData$CATEGORY[TSUNAMI] <- "TSUNAMI"
+stormData$CATEGORY[MICROBURSTS] <- "MICROBURST"
+stormData$CATEGORY[THUNDERSTORMS] <- "THUNDERSTORM"
+stormData$CATEGORY[WAVE] <- "WAVES"
+stormData$CATEGORY[AVALANCHE] <- "AVALANCHE"
+stormData$CATEGORY[VOLCANO] <- "VOLCANO"
+stormData$CATEGORY[TURBULENCE] <- "TURBULENCE"
+stormData$CATEGORY[DAMBREAK] <- "DAMBREAK"
+stormData$CATEGORY[WINTER] <- "WINTER STORMS"
+stormData$CATEGORY[EROSION] <- "EROSION"
+stormData$CATEGORY[FLOOD] <- "FLOOD"
+stormData$CATEGORY[DROUGHT] <- "DROUGHT"
+stormData$CATEGORY[HAIL] <- "HAIL"
+stormData$CATEGORY[FOG] <- "FOG"
+stormData$CATEGORY[FIRE] <- "FIRE"
+stormData$CATEGORY[RAIN] <- "RAIN"
+stormData$CATEGORY[WIND] <- "WIND"
+stormData$CATEGORY[HOT] <- "HEAT"
+stormData$CATEGORY[COLD] <- "COLD"
+stormData$CATEGORY[DUST] <- "DUST"
+stormData$CATEGORY[OTHER] <- "OTHER"
+stormData$CATEGORY[which(stormData$CATEGORY == "")] <- "OTHER"
+```
+
+#### Cleaning Damage Columns
+
+For this part I had to do some research considering the EXP columns for damage have values that are not mentioned in the describing documents. I used [this analysis](https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html) as a reference to determine the values of the unintuitive exponent values. 
+[This resource](https://www.ncdc.noaa.gov/stormevents/choosedates.jsp?statefips=-999%2CALL) was used to compare our dataset to the actual values originally published. 
+```{r, cache = TRUE}
+stormData$PROPDMGEXP <- gsub("\\?", 0, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("\\-", 0, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("\\+", 1, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("0|1|2|3|4|5|6|7|8", 10, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("H|h", 100, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("K|k", 1000, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("M|m", 1000000, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP <- gsub("B|b", 1000000000, stormData$PROPDMGEXP)
+stormData$PROPDMGEXP[which(stormData$PROPDMGEXP == "")] <- 0
+stormData$PROPDMG[which(stormData$PROPDMG == "")] <- 0
+
+stormData$CROPDMGEXP <- gsub("\\?", 0, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("\\-", 0, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("\\+", 1, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("0|1|2|3|4|5|6|7|8", 10, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("H|h", 100, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("K|k", 1000, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("M|m", 1000000, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP <- gsub("B|b", 1000000000, stormData$CROPDMGEXP)
+stormData$CROPDMGEXP[which(stormData$CROPDMGEXP == "")] <- 0
+stormData$CROPDMG[which(stormData$CROPDMG == "")] <- 0
+
+stormData$PROPDMGCOST <- stormData$PROPDMG * as.numeric(stormData$PROPDMGEXP)
+stormData$CROPDMGCOST <- stormData$CROPDMG * as.numeric(stormData$CROPDMGEXP)
+```
+
+### Results
+
+#### Harm Impact
+
+The original data was grouped and summarized into the variable `EVdata`. New columns were also calculated to better understand the proportion of each events harm effects relative to the total harm by all events. The data was sorted by the average of these proportions.
+```{r, cache = TRUE}
+EVdata <- stormData %>%
+    group_by(CATEGORY) %>% 
+    summarise(FATALITIES = sum(FATALITIES), INJURIES = sum(INJURIES)) %>%
+    mutate(FATALITY.PROPORTION = round((FATALITIES/sum(FATALITIES)*100), digits = 1), INJURY.PROPORTION = round((INJURIES/sum(INJURIES)*100), digits = 1), PROPORTION.AVERAGE = ((FATALITIES/sum(FATALITIES)*100) + (INJURIES/sum(INJURIES)*100)) / 2) %>%
+    arrange(desc(PROPORTION.AVERAGE)) #%>%
+    #rename(EVENT.TYPE = EVTYPE)
+```
+
+
+This table shows the actual values and relative proportions of harm. 
+
+The numbers of individuals were formatted with "," characters to appear more readable.
+```{r, cache = TRUE}
+EVdataTable <- EVdata
+EVdataTable$FATALITIES <- formatC(EVdata$FATALITIES, big.mark = ",", format = "fg")
+EVdataTable$INJURIES<- formatC(EVdata$INJURIES, big.mark = ",", format = "fg")
+EVdataTable$FATALITY.PROPORTION <- paste0(EVdataTable$FATALITY.PROPORTION, "%")
+EVdataTable$INJURY.PROPORTION <- paste0(EVdataTable$INJURY.PROPORTION, "%")
+
+kable(EVdataTable[, 1:5], caption = "Table 1. Fatality and Injuries due to Natural Events from 1950-2011") %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+This graph shows the fatalities and injuries associated with each event type. The data is sorted by the average of the injury and fatality relative proportions for each event.
+
+Tornados are revealed to cause much more harm than other events (both respect to deaths and injuries), however heat related weather, thunderstorms, floods and winter storms also 
+```{r, cache = TRUE}
+graphdata <- melt(setDT(EVdata[, c(1:3, 5)]), 
+                  id.vars = c("CATEGORY"), 
+                  measure.vars = c("FATALITIES", "INJURIES"),
+                  variable.name = "HARM.TYPE")
+
+#didn't work, merge PROPORTION.AVERAGE to sort
+graphdata <- merge(EVdata[, c(1, 6)], graphdata)
+
+ggplot(graphdata, aes(x = reorder(factor(CATEGORY), -PROPORTION.AVERAGE), y = value, fill = HARM.TYPE)) +
+    geom_col(position = "stack") + 
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(x = "Event Type", 
+         y = "Number of People", 
+         title = "Fatality and Injuries due to Natural Events from 1950-2011", 
+         fill = "Harm Type")
+```
+
+**Figure 1. Fatality and Injuries due to Natural Events from 1950-2011**
+
+#### Economic Impact
+
+The original data was grouped and summarized into the variable `COSTdata`. The data was sorted by the total cost of damage for each event type (property + crop).
+
+```{r, cache = TRUE}
+COSTdata <- stormData %>%
+    group_by(CATEGORY) %>% 
+    summarise(PROPERTY.DAMAGE = sum(PROPDMGCOST), CROP.DAMAGE = sum(CROPDMGCOST)) %>%
+    mutate(TOTAL.COST = PROPERTY.DAMAGE + CROP.DAMAGE, PROPORTION = round((TOTAL.COST/sum(TOTAL.COST)) * 100, digits = 1)) %>%
+    arrange(desc(TOTAL.COST)) 
+```
+
+A table is included for this data as well, showing the true values of cost associated with each event type. Units were included and numerical values were separated with a "," character for easy readability.
+```{r, cache = F}
+COSTdataTable <- COSTdata
+COSTdataTable$PROPERTY.DAMAGE <- formatC(COSTdata$PROPERTY.DAMAGE, big.mark = ",", format = "fg")
+COSTdataTable$CROP.DAMAGE <- formatC(COSTdataTable$CROP.DAMAGE, big.mark = ",", format = "fg")
+COSTdataTable$TOTAL.COST <- formatC(COSTdataTable$TOTAL.COST, big.mark = ",", format = "fg")
+
+COSTdataTable$PROPERTY.DAMAGE <- paste0("$", COSTdataTable$PROPERTY.DAMAGE)
+COSTdataTable$CROP.DAMAGE <- paste0("$", COSTdataTable$CROP.DAMAGE)
+COSTdataTable$TOTAL.COST <- paste0("$", COSTdataTable$TOTAL.COST)
+COSTdataTable$PROPORTION <- paste0(COSTdataTable$PROPORTION, "%")
+
+kable(COSTdataTable, caption = "Table 2. Economic Cost due to Natural Events from 1950-2011 (USD)") %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+This plot shows the total cost in billions of dollars due to each natural event. The greatest economic consequences are shown to come from floods, followed by hurricanes and tornadoes.
+```{r, cache = TRUE}
+ggplot(COSTdata, aes(x = reorder(factor(CATEGORY), -TOTAL.COST), 
+                     y = TOTAL.COST/1000000000, 
+                     fill = TOTAL.COST/1000000000)) +
+    geom_col() + 
+    theme(axis.text.x = element_text(angle = 90)) + 
+    labs(x = "Event Type", 
+         y = "Cost of Damage (Billions of Dollars)", 
+         title = "Economic Cost due to Natural Events from 1950-2011", 
+         fill = "Billions of Dollars")
+```
