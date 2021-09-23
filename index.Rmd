@@ -1,23 +1,28 @@
 ---
 title: "The Health and Economic Effects of Weather Related Conditions"
+author: "Kyle Rozic"
 output:
   html_document:
     df_print: paged
+    toc: TRUE
 ---
 
 ```{r, echo = FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
+
     
-### Synopsis
+## Synopsis
 
 Storm data spanning from 1950-2011 was acquired from the National Weather Service. This data was processed and analyzed to determine which weather related events were the most costly to human life as well as property and crops.
 
 It was found that tornadoes had the greatest health impact, with a total of 5,640 fatalities and 91,439 injuries, while floods had the greatest economic impact, with a total of ~\$215 billion in property damage and ~\$12 billion in crop damage.
 
-### Data Processing
+The repository for this project can be found on my [github](https://github.com/krozic/Weather-Data-Cleaning-and-Visualization).
 
-#### Getting the Data
+## Data Processing
+
+### Getting the Data
     
 The original dataset can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) (dim = [902297, 37])
     
@@ -35,7 +40,7 @@ if(!file.exists("./data/stormdata.csv.bz2")){download.file(fileUrl, "./data/stor
 stormData <- read.csv("./data/stormdata.csv.bz2")
 ```
 
-#### Cleaning EVTYPE
+### Cleaning EVTYPE
 
 There is a lot of overlap between categories (Ex. tornadoes involve rain, hail, thunder and lightning) so the order was set up in terms of priority (i.e. what is the likely cause of damage given these properties of the storm). Both "Flood" and "Drought" are symptoms of weather patters, and were placed at the end to remain separate from weather descriptions. A flood or drought may be caused by a number of factors, however the root cause of a tsunami or hurricane would be a more honest description for the source of that damage.
 
@@ -91,7 +96,7 @@ stormData$CATEGORY[OTHER] <- "OTHER"
 stormData$CATEGORY[which(stormData$CATEGORY == "")] <- "OTHER"
 ```
 
-#### Cleaning Damage Columns
+### Cleaning Damage Columns
 
 For this part I had to do some research considering the EXP columns for damage have values that are not mentioned in the describing documents. I used [this analysis](https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html) as a reference to determine the values of the unintuitive exponent values. 
 [This resource](https://www.ncdc.noaa.gov/stormevents/choosedates.jsp?statefips=-999%2CALL) was used to compare our dataset to the actual values originally published. 
@@ -122,9 +127,9 @@ stormData$PROPDMGCOST <- stormData$PROPDMG * as.numeric(stormData$PROPDMGEXP)
 stormData$CROPDMGCOST <- stormData$CROPDMG * as.numeric(stormData$CROPDMGEXP)
 ```
 
-### Results
+## Results
 
-#### Harm Impact
+### Harm Impact
 
 The original data was grouped and summarized into the variable `EVdata`. New columns were also calculated to better understand the proportion of each events harm effects relative to the total harm by all events. The data was sorted by the average of these proportions.
 ```{r, cache = TRUE}
@@ -173,7 +178,7 @@ ggplot(graphdata, aes(x = reorder(factor(CATEGORY), -PROPORTION.AVERAGE), y = va
 
 **Figure 1. Fatality and Injuries due to Natural Events from 1950-2011**
 
-#### Economic Impact
+### Economic Impact
 
 The original data was grouped and summarized into the variable `COSTdata`. The data was sorted by the total cost of damage for each event type (property + crop).
 
